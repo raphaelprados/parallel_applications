@@ -13,10 +13,10 @@
 #define CONV_THRESHOLD 1.0e-5f // threshold of convergence
 
 // matrix to be solved
-double **grid;
+double *grid;
 
 // auxiliary matrix
-double **new_grid;
+double *new_grid;
 
 // size of each side of the grid
 int size;
@@ -37,13 +37,8 @@ double absolute(double num){
 
 // allocate memory for the grid
 void allocate_memory(){
-    grid = (double **) malloc(size * sizeof(double *));
-    new_grid = (double **) malloc(size * sizeof(double *));
-
-    for(int i = 0; i < size; i++){
-        grid[i] = (double *) malloc(size * sizeof(double));
-        new_grid[i] = (double *) malloc(size * sizeof(double));
-    }
+    grid = (double *) malloc(size * size * sizeof(double));
+    new_grid = (double *) malloc(size * size * sizeof(double));
 }
 
 // initialize the grid
@@ -57,10 +52,10 @@ void initialize_grid(){
         for (int j = 0; j < size; j++){
             // inicializa região de calor no centro do grid
             if ( i>=linf && i < lsup && j>=linf && j<lsup)
-                grid[i][j] = 100;
+                grid[i*size+j] = 100;
             else
-               grid[i][j] = 0;
-            new_grid[i][j] = 0.0;
+               grid[i*size+j] = 0;
+            new_grid[i*size+j] = 0.0;
         }
     }
 }
@@ -77,7 +72,7 @@ void save_grid(){
 
     for(int i = 0; i < size; i++){
         for(int j = 0; j < size; j++){
-            fprintf(file, "%lf ", grid[i][j]);
+            fprintf(file, "%lf ", grid[i*size+j]);
         }
         fprintf(file, "\n");
     }
@@ -90,7 +85,7 @@ void print_grid(int size) {
 
     for(i = 0; i < size; i++) {
         for(j = 0; j < size; j++) {
-            printf("| %.1lf |", grid[i][j]);
+            printf("| %.1lf |", grid[i*size+j]);
         }
         printf("\n");
     }
@@ -99,8 +94,9 @@ void print_grid(int size) {
 int main(int argc, char *argv[]){
 
     if(argc != 3){
-        printf("Usage: ./laplace_seq N\n");
-        printf("N: The size of each side of the domain (grid)\n");
+        printf("Usage: ./laplace_seq N T\n");
+        printf("N: The size of each side of the domain (grid)\n"
+               "T: The number of threads to be used\n");
         exit(-1);
     }
 
@@ -123,7 +119,7 @@ int main(int argc, char *argv[]){
     double err = 1.0;
     int iter = 0;
 
-    printf("[Regular-regular] Jacobi relaxation calculation: %d x %d grid, with %d threads\n", size, size, omp_get_num_threads());
+    printf("[Regular-regular] Jacobi relaxation calculation: %d x %d grid, with %d threads\n", size, size, n_threads);
 
     // get the start time
     gettimeofday(&time_start, NULL);
@@ -136,12 +132,12 @@ int main(int argc, char *argv[]){
         err = 0.0;
 
         // calculates the Laplace equation to determine each cell's next value
-        #pragma omp parallel for collapse(2) reduction(max:err) 
+        #pragma omp parallel for reduction(max:err) schedule(static) 
             for( int i = 1; i < size-1; i++) {
                 for(int j = 1; j < size-1; j++) {
-                    new_grid[i][j] = 0.25 * (grid[i][j+1] + grid[i][j-1] +
-                                            grid[i-1][j] + grid[i+1][j]);
-                    err = max(err, absolute(new_grid[i][j] - grid[i][j]));
+                    new_grid[i*size+j] = 0.25 * (grid[i*size+j+1] + grid[i*size+j-1] +
+                                                 grid[(i-1)*size+j] + grid[(i+1)*size+j]);
+                    err = max(err, absolute(new_grid[i*size+j] - grid[i*size+j]));
                 }
             }
         
@@ -149,18 +145,13 @@ int main(int argc, char *argv[]){
         // copie the next values into the working array for the next iteration
         for( int i = 1; i < size-1; i++) {
             for( int j = 1; j < size-1; j++) {
-                grid[i][j] = new_grid[i][j];
+                grid[i*size+j] = new_grid[i*size+j];
             }
-        }
-        
-        if(0) {
-            printf("Finished %dth iteration with %.16lf error\n", iter, err);
-            print_grid(size);
-            getchar();
         }
 
         iter++;
     }
+    
 
     // get the end time
     gettimeofday(&time_end, NULL);

@@ -99,11 +99,15 @@ void print_grid(int size) {
 int main(int argc, char *argv[]){
 
     if(argc != 3){
-        printf("Usage: ./laplace_seq N\n");
+        printf("Usage: ./laplace_seq N T\n");
         printf("N: The size of each side of the domain (grid)\n"
-               "T: The number of threads\n");
+               "T: The number of threads to be used\n");
         exit(-1);
     }
+
+    int n_threads = atoi(argv[2]);
+
+    omp_set_num_threads(n_threads);
 
     // variables to measure execution time
     struct timeval time_start;
@@ -111,23 +115,17 @@ int main(int argc, char *argv[]){
 
     size = atoi(argv[1]);
 
-    int n_threads = atoi(argv[2]);
-
     // allocate memory to the grid (matrix)
     allocate_memory();
 
     // set grid initial conditions
     initialize_grid();
 
-    // Sets the number of threads
-    omp_set_num_threads(n_threads);
-
     double err = 1.0;
     int iter = 0;
-
     double **temp;
 
-    printf("[Regular-Pointer Swap] Jacobi relaxation calculation: %d x %d grid with %d threads\n", size, size, n_threads);
+    printf("[Regular-regular] Jacobi relaxation calculation: %d x %d grid, with %d threads\n", size, size, n_threads);
 
     // get the start time
     gettimeofday(&time_start, NULL);
@@ -154,15 +152,10 @@ int main(int argc, char *argv[]){
         temp = grid;
         grid = new_grid;
         new_grid = temp;
-        
-        if(0) {
-            printf("Finished %dth iteration with %.16lf error\n", iter, err);
-            print_grid(size);
-            getchar();
-        }
 
         iter++;
     }
+    
 
     // get the end time
     gettimeofday(&time_end, NULL);
