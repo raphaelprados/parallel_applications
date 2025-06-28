@@ -48,9 +48,6 @@ int main(int argc, char *argv[]) {
     clock_t start, end;
     double total;
 
-    // Thread variables
-    double *temp_C;
-
     if(argc != 5){
         printf("Usage: ./mmul x y z T\n"
                "A[x, y] * B[y, z] = C[x, z]\n"
@@ -66,15 +63,16 @@ int main(int argc, char *argv[]) {
 
     alloc_arrays(x, y, z);
     init_data_arrays(x, y, z);
-    temp_C = malloc(z * sizeof(double));
 
-    #pragma omp parallel for colapse(2)
-    for(i = 0; i < x; i++) {
-        for(j = 0; j < z; j++) {
-            C[i*z+j] = 0;
-            for(k = 0; k < y; k++)  {
-                C[i*z+j] += A[i*y+k] * B[j*y+k];
+    double sum;
+    #pragma omp parallel for schedule(static) private(j, k, sum)
+    for (i = 0; i < x; i++) {
+        for (j = 0; j < z; j++) {
+            sum = 0.0;
+            for (k = 0; k < y; k++) {
+                sum += A[i*y + k] * B[j*y + k];
             }
+            C[i*z + j] = sum;
         }
     }
 

@@ -146,13 +146,15 @@ int main(int argc, char *argv[]) {
         //      multiplying a row by a column, I'm multiplying a row in local_A by a row in Bt, which
         //      renders continuous memory access, instead of doing a offset to access each column in B. 
         //      This increases data locality, cache hits and improves performance.   
-        #pragma omp parallel for collapse(2) schedule(dynamic, chunk_size) 
+        double sum;
+        #pragma omp parallel for schedule(dynamic, chunk_size) private(j, k, sum) 
         for(i = 0; i < size_vector[rank]; i++) {
             for(j = 0; j < z; j++) {
-                local_C[i*z+j] = 0;
+                sum = 0;
                 for(k = 0; k < y; k++)  {
-                    local_C[i*z+j] += local_A[i*y+k] * B[j*y+k];
+                    sum += local_A[i*y+k] * B[j*y+k];
                 }
+                local_C[i*z+j] = sum;
             }
         }
 
@@ -206,5 +208,3 @@ int main(int argc, char *argv[]) {
 
     return 0;
 }
-
-
