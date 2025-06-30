@@ -94,6 +94,7 @@ int main(int argc, char const *argv[]) {
             vector_mult_kernel<<<blocks, cuda_threads>>>(a, b, c, N);
             cudaDeviceSynchronize();
         cudaEventRecord(stop);
+        cudaEventSynchronize(stop);  // <-- REQUIRED
     } else {
         for(int i = 0; i < 3; i++) 
             if(sync_err[i] != cudaSuccess)
@@ -101,7 +102,7 @@ int main(int argc, char const *argv[]) {
     }
 
     auto end = std::chrono::high_resolution_clock::now();
-    auto total_time = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin);
+    auto total_time = std::chrono::duration<double, std::milli>(end - begin);
 
     // ------------------------------ Error Handling ------------------------------
 
@@ -117,8 +118,7 @@ int main(int argc, char const *argv[]) {
     // Time measuring via events
     cudaEventElapsedTime(&kernel_time, start, stop);
     std::cout << "(" << N << " data points, " << blocks << " blocks and " << cuda_threads << " threads per block)\n" 
-                 "Total execution time is " << total_time.count() << "milisseconds" << std::endl <<
-                 "Kernel execution time is " << kernel_time << "ms" << std::endl;
+                 "(" << total_time.count() << ", " << kernel_time << ")ms" << std::endl;
 
     // ------------------------------ Memory Freeing ------------------------------
 

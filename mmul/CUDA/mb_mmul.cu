@@ -42,7 +42,8 @@ int main(int argc, char const *argv[]) {
     // ------------------------------ Variable declaration ------------------------------
 
     // Arrays
-    double *a, *b, *c;
+    double   *A,   *B,   *C,
+           *d_A, *d_B, *d_C;
 
     if(argc != 3) {
         printf("Program usage: ./bin N F, where\n"
@@ -74,30 +75,31 @@ int main(int argc, char const *argv[]) {
 
     auto begin = std::chrono::high_resolution_clock::now();
 
-    sync_err[0] = cudaMallocManaged(&a, size);      // Checks for memory allocation errors
-    sync_err[1] = cudaMallocManaged(&b, size);
-    sync_err[2] = cudaMallocManaged(&c, size);
+    sync_err[0] = cudaMalloc(&A, size);      // Checks for memory allocation errors
+    sync_err[1] = cudaMalloc(&B, size);
+    sync_err[2] = cudaMalloc(&C, size);
 
     for(int i = 0; i < 3; i++)
         allocation_error = allocation_error || (sync_err[i] != cudaSuccess);
 
-    if(allocation_error)
+    if(allocation_error) {
+        for(int i = 0; i < 3; i++) 
+            if(sync_err[i] != cudaSuccess)
+                std::cout << "CUDA error on " << i << "th allocation: " << cudaGetErrorString(sync_err[i]) << std::endl;
         exit(-1);
+    }
 
-    initData(a, N*N);
-    initData(b, N*N);
+    initData(A, N*N);
+    initData(B, N*N);
 
     // ------------------------------ Processing ------------------------------
 
     if(!allocation_error) {
         cudaEventRecord(start);
-            vector_mult_kernel<<<blocks, cuda_threads>>>(a, b, c, N);
+            vector_mult_kernel<<<blocks, cuda_threads>>>(A, B, C, N);
             cudaDeviceSynchronize();
         cudaEventRecord(stop);
-    } else {
-        for(int i = 0; i < 3; i++) 
-            if(sync_err[i] != cudaSuccess)
-                std::cout << "CUDA error on " << i << "th allocation: " << cudaGetErrorString(sync_err[i]) << std::endl;
+        cudaEventSynchronize(stop);  // <-- REQUIRED
     }
 
     auto end = std::chrono::high_resolution_clock::now();
@@ -121,7 +123,7 @@ int main(int argc, char const *argv[]) {
 
     // ------------------------------ Memory Freeing ------------------------------
 
-    cudaFree(a); cudaFree(b); cudaFree(c);
+    cudaFree(A); cudaFree(B); cudaFree(C);
 
     return 0;
 }
